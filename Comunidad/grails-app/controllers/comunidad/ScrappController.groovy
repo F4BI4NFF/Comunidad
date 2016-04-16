@@ -3,14 +3,6 @@ package comunidad
 import static org.springframework.http.HttpStatus.*
 import grails.transaction.Transactional
 
-import groovyx.net.http.HTTPBuilder
-import groovyx.net.http.ContentType
-import groovyx.net.http.Method
-import groovyx.net.http.RESTClient
-
-import groovy.util.XmlSlurper
-import groovy.util.XmlParser
-	import groovy.json.*
 
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
@@ -95,38 +87,66 @@ class ScrappController{
 
 
 	}
-
+	@Transactional
 	def todos(){
 		def extra = "?buscar=&pagina="
 		def contador = 0
 		def actual = ['algo']
 		def todos = []
+		def links
 		while(actual != []){
 			Document doc = Jsoup.connect("http://arpa.ucv.cl/dic/resultado.php"+extra+contador).timeout(1500).get();
 			contador++
 
-			actual = doc.select("#datos h2 a")	
-			todos = todos + actual
+			actual = doc.select("#datos h2 a")
+			links = actual.collect{ it.attr("abs:href") } //links dento href
+			//links = (info.collect{it.toString()})*.replaceAll("profile.php","http://arpa.ucv.cl/dic/profile.php") 
+				//info = (actual.collect{it.toString()})*.replaceAll("profile.php","http://arpa.ucv.cl/dic/profile.php") //super util el lista*.replaceall
+
+			todos = todos + links
+		} //todas las paginas de cada persona rescatadas
+
+		//se busca lo necesario y se guarda en la BD
+		def nombre, mail,gustos
+		for(url in todos){
+			Document doc = Jsoup.connect(url).timeout(1500).get();
+
+			nombre = doc.select("#resultados #ficha h2").first().text()
+
+			extra = doc.select("#resultados #ficha li").first()
+			mail = extra.ownText()
+
+			gustos =doc.select("#resultados #ficha a[href]")
+			gustos = gustos.collect{it.text()} //gustos
+			/* agregar a la clase correo */
+			Correo c = new Correo(mail,nombre,gustos)
+			if( !c.save(flush:true)){
+				render "no se agrego 1"
+			} else{
+				render " se agregó 1"
+			}
 		}
-		[todos:todos]
 	}
 
 	def buscar(){
 		def busq = params.busqueda
 
 		Document doc = Jsoup.connect("http://arpa.ucv.cl/dic/resultado.php").data("buscar", busq).timeout(1500).post()
-		def search = doc.select("#datos h2")
-		def info = search.collect{it.toString()}
+		def search = doc.select("#datos h2") //#id datos
+		def info = (search.collect{it.toString()})*.replaceAll("profile.php","http://arpa.ucv.cl/dic/profile.php") //super util el lista*.replaceall
 
 		def links = []//search.attr("abs:href")
 
-		def a = params.busqueda
-		busq = a.replaceAll(' ','+')
+		//busq = a.replaceAll(' ','+')
 		Document doc2 = Jsoup.connect("http://www.musicapopular.cl/").ignoreHttpErrors(true).data("s",busq).timeout(1500).post()
-		def search2 = doc.select("div.cont_img_thumb_result_s")
+		def search2 = doc2.select("article h2 a") //div con class = contblabla
 		def info2 = search2.collect{it.toString()}
 
-		[datos:info,datos2:info2]
+		Document doc3 = Jsoup.connect("http://www.difusion.musicachilena.cl/").data("s",busq).timeout(1500).post()
+		def search3 = doc3.select("article h2 a")
+		def info3 = search3.collect{it.toString()} //string para el {raw()}
+
+		[datos:info,datos2:info2, datos3:info3]
 /*
  Document doc = Jsoup.connect("http://www.facebook.com")
   .data("email", "myemailid")
