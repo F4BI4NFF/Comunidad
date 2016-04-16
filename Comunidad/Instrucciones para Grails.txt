@@ -1,0 +1,6 @@
+Hola!, aca dejo unas pequeñas instrucciones para ocupar bien el proyecto Comunidad
+
+Primero necesitan una base de datos mysql(localhost) activa en sus puertos 3306
+con username "root" y pass vacío o ""
+
+Las clases dentro son de prueba nomas para el scrapping de las paginas web
